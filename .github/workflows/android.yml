@@ -1,0 +1,68 @@
+# Baut die Android-App.
+#  - Test-App (APK): zum direkten Installieren auf deinem Handy
+#  - Play-Store-Paket (AAB): nur wenn die Signatur-Secrets eingerichtet sind
+# Starten: GitHub -> Actions -> "Android App" -> "Run workflow"
+name: Android App
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - 'public/content/**'
+      - '**.md'
+
+jobs:
+  android:
+    # automatisch nur auf dem Haupt-Branch, per Knopfdruck auf jedem Branch
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm run check:content
+      - name: Web-Teil bauen und in die App kopieren
+        run: npm run build && npx cap sync android
+      - name: Test-APK bauen
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: squishy-world-test-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Signatur-Schlüssel vorbereiten
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "file=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
+          else
+            echo "Keine Signatur eingerichtet – überspringe Play-Store-Paket."
+          fi
+      - name: Play-Store-Paket (AAB) bauen
+        if: steps.keystore.outputs.file != ''
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ steps.keystore.outputs.file }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+      - if: steps.keystore.outputs.file != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: squishy-world-playstore-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
