@@ -28,7 +28,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - run: npm ci
       - run: npm run check:content
       - name: Web-Teil bauen und in die App kopieren
