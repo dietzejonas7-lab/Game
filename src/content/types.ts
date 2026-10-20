@@ -1,216 +1,229 @@
 // ===========================================================================
-// Das "Inhalts-Format" des Spiels.
-//
-// Alles, was im Spiel an Inhalten vorkommt (Squishys, Sammlungen, Boxen,
-// Shop-Angebote, Quests, Belohnungen ...), steht NICHT im Programmcode,
-// sondern in der Datei public/content/content.json.
-// Diese Datei beschreibt, wie die JSON-Datei aufgebaut sein muss.
+// So sieht die Datei public/content/content.json aus.
+// Jedes Feld ist hier beschrieben – die ANLEITUNG.md erklärt es mit Beispielen.
 // ===========================================================================
 
-export type RarityId = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+/** Mengen von Ressourcen, z.B. { "energy": 100, "particles": 5 } */
+export type Amounts = Record<string, number>;
 
-/** Material bestimmt Physik, Klang und Aussehen-Grundlage eines Squishys. */
-export type MaterialId = 'foam' | 'mochi' | 'jelly' | 'gel';
-
-export interface Reward {
-  coins?: number;
-  gems?: number;
-  xp?: number;
-  /** ID einer Box, die gratis geöffnet wird */
-  box?: string;
-  /** ID eines Squishys, das man direkt bekommt */
-  squishy?: string;
+/**
+ * Bedingung, damit etwas erscheint/freigeschaltet wird.
+ * Alle angegebenen Punkte müssen erfüllt sein. Leer = immer erfüllt.
+ */
+export interface Requirement {
+  /** so viel muss man gerade BESITZEN */
+  resources?: Amounts;
+  /** so viel muss in DIESEM Universum insgesamt erzeugt worden sein */
+  totals?: Amounts;
+  /** so viel muss in ALLEN Universen zusammen erzeugt worden sein */
+  lifetime?: Amounts;
+  /** so viele Strukturen muss man besitzen, z.B. { "fluctuation": 10 } */
+  producers?: Record<string, number>;
+  /** diese Forschungen müssen erforscht sein */
+  upgrades?: string[];
+  /** diese Epoche muss in diesem Universum erreicht sein */
+  epoch?: string;
+  /** diese Epoche muss irgendwann schon einmal erreicht worden sein */
+  epochEver?: string;
+  /** so viele Universen müssen schon kollabiert sein */
+  universes?: number;
+  /** so oft muss ein Universum den Wärmetod erlebt haben */
+  heatDeaths?: number;
+  /** so oft muss insgesamt getippt worden sein */
+  clicks?: number;
+  /** so viele Anomalien müssen eingefangen worden sein */
+  anomalies?: number;
 }
 
-export interface RarityDef {
-  id: RarityId;
-  name: string;
-  color: string;
-  /** Münzen, wenn man ein Squishy doppelt bekommt */
-  duplicateCoins: number;
-  /** XP pro Squish */
-  xpPerSquish: number;
-  /** Münzen alle 10 Squishes */
-  coinsPer10Squishes: number;
+export type EffectType =
+  | 'producerMult' // Struktur (target) produziert value-mal so viel
+  | 'resourceMult' // Ressource (target) wird value-mal so viel produziert
+  | 'globalMult' // alles wird value-mal so viel produziert
+  | 'clickMult' // Tippen gibt value-mal so viel
+  | 'clickSeconds' // Tippen gibt zusätzlich value Sekunden der aktuellen Produktion
+  | 'entropyMult' // Entropie (optional nur von target = Struktur oder Epoche) × value
+  | 'maxEntropyMult' // Grenze bis zum Wärmetod × value
+  | 'costMult' // Kosten (target = Struktur, Epoche oder leer = alle) × value
+  | 'synergy' // Ressource "source" verstärkt "target": × (1 + value · log10(1 + erzeugte Menge))
+  | 'offlineHours' // + value Stunden Offline-Fortschritt
+  | 'anomalyRate' // Anomalien erscheinen value-mal so oft
+  | 'anomalyPower' // Anomalien wirken value-mal so stark
+  | 'autobuy' // Auto-Kauf für alle Strukturen der Epoche (target)
+  | 'autoCollapse' // Universum kollabiert beim Wärmetod automatisch
+  | 'startResources' // jedes neue Universum startet mit + value von target
+  | 'prestigeMult'; // Quintessenz-Gewinn × value
+
+export interface Effect {
+  type: EffectType;
+  target?: string;
+  source?: string;
+  value?: number;
 }
 
-export interface FaceDef {
-  eyes: 'dot' | 'happy' | 'sparkle' | 'sleepy' | 'wink' | 'cross' | 'heart' | 'big';
-  mouth: 'smile' | 'cat' | 'o' | 'tongue' | 'grin' | 'none' | 'flat';
-  blush?: boolean;
-  /** vertikale Position (-1 oben ... 1 unten), Standard 0.05 */
-  y?: number;
-  /** Größe des Gesichts, Standard 1 */
-  scale?: number;
-  /** Farbe der Augen/des Mundes */
-  color?: string;
-}
-
-export type DecorationDef =
-  | { type: 'sprinkles'; colors: string[]; count?: number; region?: 'top' | 'all' }
-  | { type: 'seeds'; color: string; count?: number }
-  | { type: 'icing'; color: string; drips?: number; y?: number }
-  | { type: 'leaf'; color: string }
-  | { type: 'stripes'; color: string; count?: number; dir?: 'h' | 'v' }
-  | { type: 'spots'; color: string; count?: number; size?: number }
-  | { type: 'stars'; color: string; count?: number }
-  | { type: 'glitter'; color?: string }
-  | { type: 'belly'; color: string }
-  | { type: 'ears'; color: string }
-  | { type: 'hole'; }
-  | { type: 'ring'; color: string }
-  | { type: 'crust'; color: string }
-  | { type: 'heart'; color: string; y?: number; size?: number };
-
-export interface CustomShape {
-  /** Liste von [Frequenz, Stärke, Phase] – erzeugt wellige Formen */
-  harmonics?: [number, number, number][];
-  /** Breite/Höhe-Verhältnis */
-  aspect?: number;
-}
-
-export interface PhysicsParams {
-  /** Wie stark das Squishy in seine Form zurück will (0.01 - 1) */
-  stiffness: number;
-  /** Wie schnell es nach dem Drücken wieder aufgeht (klein = slow rising) */
-  recovery: number;
-  /** Wie viel von der Verformung "hängen bleibt" (0 = nichts, 1 = viel) */
-  plasticity: number;
-  /** Innendruck: hoch = Volumen bleibt erhalten (wölbt sich seitlich aus) */
-  pressure: number;
-  /** Luftreibung (0.9 - 1) */
-  damping: number;
-  /** Abprall vom Boden (0 - 1) */
-  bounce: number;
-  /** Reibung auf dem Boden (0 - 1) */
-  friction: number;
-}
-
-export interface SoundParams {
-  /** Grundtonhöhe (0.5 - 2) */
-  pitch: number;
-  /** Lautstärke (0 - 1.5) */
-  volume: number;
-  /** Optionale echte Audio-Aufnahmen (URLs), überschreiben die erzeugten Sounds */
-  samples?: { squish?: string[]; release?: string[]; impact?: string[] };
-}
-
-export interface SquishyDef {
-  id: string;
-  name: string;
-  set: string;
-  rarity: RarityId;
-  material: MaterialId;
-  /** Name einer eingebauten Form oder eigene Form */
-  shape: string | CustomShape;
-  /** Größe (0.6 - 1.4), Standard 1 */
-  size?: number;
-  colors: { body: string; body2?: string; accent?: string };
-  face?: FaceDef | null;
-  decorations?: DecorationDef[];
-  physics?: Partial<PhysicsParams>;
-  sound?: Partial<SoundParams>;
-  description?: string;
-  /** false = nicht (mehr) in Boxen erhältlich */
-  available?: boolean;
-  /** Zeitlich begrenzt erhältlich (ISO-Datum, z.B. "2026-12-01") */
-  availableFrom?: string;
-  availableUntil?: string;
-}
-
-export interface SetDef {
+export interface ResourceDef {
   id: string;
   name: string;
   icon: string;
-  reward: Reward;
-}
-
-export interface BoxDef {
-  id: string;
-  name: string;
-  description?: string;
-  /** Kosten. free = gratis mit Wartezeit (Minuten) */
-  cost: { coins?: number; gems?: number; freeCooldownMinutes?: number };
-  /** Gewichte für die Seltenheiten. Werden als Prozent angezeigt (Pflicht im Play Store!) */
-  odds: Partial<Record<RarityId, number>>;
-  /** Nur Squishys aus diesen Sammlungen (leer = alle) */
-  sets?: string[];
-  /** Spätestens nach so vielen Boxen ohne mindestens "pity.minRarity" gibt es garantiert eine */
-  pity?: { every: number; minRarity: RarityId };
   color: string;
-  color2?: string;
-  icon?: string;
-  unlockLevel?: number;
-  /** Zeitlich begrenzte Box */
-  availableFrom?: string;
-  availableUntil?: string;
 }
 
-export interface ProductDef {
-  /** Muss genau so in der Google Play Console angelegt werden */
-  productId: string;
-  name: string;
-  gems: number;
-  /** Nur Anzeige – der echte Preis kommt später von Google Play */
-  priceLabel: string;
-  badge?: string;
-}
+export type EpochVisual = 'singularity' | 'plasma' | 'atoms' | 'stars' | 'galaxy' | 'life' | 'mind';
 
-export interface CoinOfferDef {
+export interface EpochDef {
   id: string;
   name: string;
-  coins: number;
-  gems: number;
+  /** Hauptressource dieser Epoche */
+  resource: string;
+  /** wann die Epoche beginnt (die erste Epoche hat keine Bedingung) */
+  unlock?: Requirement;
+  /** welches Bild in der Mitte gezeigt wird */
+  visual: EpochVisual;
+  /** Farben des Hintergrunds: oben, unten, Akzent */
+  colors: { top: string; bottom: string; accent: string };
+  /** Text, der beim ersten Erreichen erscheint */
+  intro: string;
 }
 
-export interface QuestTemplate {
-  id: string;
-  text: string;
-  type: 'squish' | 'openBox' | 'throw' | 'collectNew' | 'squishMaterial' | 'squishRarity';
-  target: number;
-  /** z.B. Material oder Seltenheit für squishMaterial/squishRarity */
-  param?: string;
-  reward: Reward;
-}
-
-export interface SceneDef {
+export interface ProducerDef {
   id: string;
   name: string;
-  bgTop: string;
-  bgBottom: string;
-  table: string;
-  unlockLevel: number;
+  icon: string;
+  epoch: string;
+  desc: string;
+  /** Preis der ersten Einheit */
+  cost: Amounts;
+  /** jede weitere Einheit kostet so viel mal mehr (z.B. 1.15 = +15 %) */
+  costGrowth: number;
+  /** Produktion pro Sekunde und Einheit */
+  produces: Amounts;
+  /** Entropie pro Sekunde und Einheit */
+  entropy: number;
+  /** zusätzliche Bedingung zum Anzeigen */
+  unlock?: Requirement;
+}
+
+export interface UpgradeDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  cost: Amounts;
+  unlock?: Requirement;
+  effects: Effect[];
+}
+
+/** Ein Naturgesetz: Regler von -Stufe bis +Stufe. Jeder Punkt wendet die Effekte einmal an. */
+export interface LawDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  unlock?: Requirement;
+  maxLevel: number;
+  /** Preis in Quintessenz für Stufe n: base · growth^(n-1) */
+  cost: { base: number; growth: number };
+  /** nur Multiplikator-Effekte (…Mult). Werden bei Regler +2 zweimal, bei -1 umgekehrt angewendet. */
+  effects: Effect[];
+}
+
+/** Dauerhafte Verbesserung, bleibt über alle Universen. */
+export interface EternalDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  unlock?: Requirement;
+  /** 0 = unbegrenzt */
+  maxLevel: number;
+  /** Preis für die nächste Stufe: base · growth^(aktuelle Stufe) */
+  cost: { base: number; growth: number };
+  /** pro Stufe */
+  effects: Effect[];
+}
+
+export interface AchievementDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  req: Requirement;
+  effects: Effect[];
+}
+
+export type AnomalyKind = 'burst' | 'frenzy' | 'clickFrenzy' | 'entropyDrop';
+
+export interface AnomalyDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  /** Häufigkeit im Vergleich zu den anderen */
+  weight: number;
+  /** burst: value Sekunden Produktion sofort · frenzy: Produktion × value · clickFrenzy: Tippen × value · entropyDrop: Entropie -value (Anteil, 0.2 = 20 %) */
+  kind: AnomalyKind;
+  value: number;
+  /** Dauer in Sekunden (für frenzy und clickFrenzy) */
+  duration?: number;
+  unlock?: Requirement;
+}
+
+/** Zeitlich begrenzte Aktion, z.B. Wochenende mit doppelter Produktion */
+export interface EventDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  /** Datum wie "2026-10-25" (leer = sofort) */
+  from?: string;
+  /** Datum wie "2026-11-02" (leer = für immer) */
+  until?: string;
+  effects: Effect[];
 }
 
 export interface NewsDef {
   id: string;
   title: string;
   text: string;
+  from?: string;
   until?: string;
 }
 
-export interface GameContent {
-  contentVersion: number;
-  /** Ältere App-Versionen ignorieren Inhalte mit höherem minAppVersion */
-  minAppVersion: number;
-  rarities: RarityDef[];
-  sets: SetDef[];
-  squishies: SquishyDef[];
-  boxes: BoxDef[];
-  products: ProductDef[];
-  coinOffers: CoinOfferDef[];
-  quests: QuestTemplate[];
-  questsPerDay: number;
-  dailyRewards: Reward[];
-  levels: {
-    xpBase: number;
-    xpGrowth: number;
-    maxLevel: number;
-    rewardPerLevel: Reward;
-    milestones: { level: number; reward: Reward; text?: string }[];
+export interface Balance {
+  /** Was ein Tipp ohne Verbesserungen bringt */
+  click: Amounts;
+  /** Bei jeder x-ten Einheit einer Struktur: Produktion dieser Struktur × mult */
+  milestones: { every: number; mult: number };
+  /** Grenze bis zum Wärmetod (wird mit Verbesserungen größer) */
+  maxEntropy: number;
+  prestige: {
+    name: string;
+    icon: string;
+    /** Gewinn = Summe über alle Quellen von (erzeugte Menge / threshold)^exponent */
+    sources: Record<string, { threshold: number; exponent: number }>;
+    /** Bonus, wenn das Universum bis zum Wärmetod gelebt hat (1.5 = +50 %) */
+    heatDeathBonus: number;
+    /** Jede nicht ausgegebene Quintessenz erhöht die Produktion um so viel (0.02 = +2 %) */
+    bonusPerPoint: number;
   };
-  starThresholds: number[];
-  starter: { coins: number; gems: number; squishies: string[] };
-  scenes: SceneDef[];
+  /** Offline-Fortschritt in Stunden (ohne Verbesserungen) */
+  offlineHours: number;
+  anomalies: { minSeconds: number; maxSeconds: number; lifetimeSeconds: number };
+}
+
+export interface GameContent {
+  /** bei JEDER Änderung um 1 erhöhen */
+  contentVersion: number;
+  /** braucht mindestens diese App-Version (siehe src/config.ts) */
+  minAppVersion: number;
+  balance: Balance;
+  resources: ResourceDef[];
+  epochs: EpochDef[];
+  producers: ProducerDef[];
+  upgrades: UpgradeDef[];
+  laws: LawDef[];
+  eternals: EternalDef[];
+  achievements: AchievementDef[];
+  anomalies: AnomalyDef[];
+  events: EventDef[];
   news: NewsDef[];
 }

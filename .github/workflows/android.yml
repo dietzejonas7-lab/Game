@@ -37,7 +37,7 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: squishy-world-test-apk
+          name: kosmogenesis-test-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Signatur-Schlüssel vorbereiten
@@ -63,5 +63,5 @@ jobs:
       - if: steps.keystore.outputs.file != ''
         uses: actions/upload-artifact@v4
         with:
-          name: squishy-world-playstore-aab
+          name: kosmogenesis-playstore-aab
           path: android/app/build/outputs/bundle/release/app-release.aab

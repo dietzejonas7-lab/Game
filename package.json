@@ -1,5 +1,5 @@
 {
-  "name": "squishy-world",
+  "name": "kosmogenesis",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "check:content": "node scripts/check-content.ts",
     "android:sync": "npm run build && npx cap sync android",
-    "android:open": "npx cap open android"
+    "android:open": "npx cap open android",
+    "simulate": "node scripts/simulate.ts",
+    "icons": "npx @capacitor/assets generate --android --iconBackgroundColor \"#05030f\" --splashBackgroundColor \"#05030f\""
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

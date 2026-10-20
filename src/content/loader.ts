@@ -13,7 +13,7 @@ import { storage } from '../platform/platform';
 import type { GameContent } from './types';
 import { validateContent } from './validate';
 
-const CACHE_KEY = 'squishy.contentCache';
+const CACHE_KEY = 'kosmo.contentCache';
 
 export interface LoadedContent {
   content: GameContent;

@@ -18,5 +18,8 @@ if (errors.length) {
   for (const e of errors) console.error('  - ' + e);
   process.exit(1);
 }
-const c = data as { squishies: unknown[]; boxes: unknown[]; contentVersion: number };
-console.log(`✅ content.json ist in Ordnung (Version ${c.contentVersion}, ${c.squishies.length} Squishys, ${c.boxes.length} Boxen)`);
+const c = data as { contentVersion: number; epochs: unknown[]; producers: unknown[]; upgrades: unknown[]; achievements: unknown[] };
+console.log(
+  `✅ content.json ist in Ordnung (Version ${c.contentVersion}: ${c.epochs.length} Epochen, ${c.producers.length} Strukturen, ` +
+    `${c.upgrades.length} Forschungen, ${c.achievements.length} Entdeckungen)`,
+);

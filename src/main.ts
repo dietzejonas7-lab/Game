@@ -1,12 +1,13 @@
 // ===========================================================================
 // Startpunkt des Spiels.
 // ===========================================================================
-import { UPDATE_CHECK_MINUTES } from './config';
+import { SAVE_KEY, UPDATE_CHECK_MINUTES } from './config';
 import { checkForUpdate, loadContent } from './content/loader';
-import { Game } from './game/game';
+import { Engine } from './engine/engine';
+import { loadSave } from './engine/state';
+import { storage } from './platform/platform';
 import { App } from './ui/app';
 import { toast } from './ui/dom';
-import { showGallery } from './ui/gallery';
 import './styles.css';
 
 async function start() {
@@ -14,32 +15,33 @@ async function start() {
   const loading = document.getElementById('loading');
   try {
     const { content, source } = await loadContent();
-    if (location.hash === '#galerie') {
-      loading?.remove();
-      showGallery(root, content);
-      return;
-    }
-    const game = new Game();
-    await game.init(content);
-    const app = new App(game);
+    const save = loadSave(await storage.get(SAVE_KEY));
+    const engine = new Engine(content, save);
+    const app = new App(engine);
+    // Zeit nachholen, in der die App geschlossen war
+    const offline = engine.catchUp();
     app.contentSource = source;
     app.mount(root);
     loading?.remove();
+    void app.greet(offline);
 
     // Regelmäßig (und beim Zurückkehren in die App) nach neuen Inhalten schauen
     const check = async () => {
-      const fresh = await checkForUpdate(game.content.contentVersion);
+      const fresh = await checkForUpdate(engine.content.contentVersion);
       if (fresh) {
-        game.updateContent(fresh);
+        engine.setContent(fresh);
         app.contentSource = 'online';
         app.refresh();
         toast('✨ Neue Inhalte geladen!');
       }
     };
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void check();
-      else void game.persist();
+      if (document.visibilityState === 'visible') {
+        void app.resume();
+        void check();
+      } else void app.save();
     });
+    window.addEventListener('pagehide', () => void app.save());
     setInterval(check, UPDATE_CHECK_MINUTES * 60_000);
   } catch (e) {
     console.error(e);

@@ -1,4 +1,4 @@
-package com.squishyworld.app;
+package com.dietzejonas.kosmogenesis;
 
 import com.getcapacitor.BridgeActivity;
 
